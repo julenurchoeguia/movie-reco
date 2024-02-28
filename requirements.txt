@@ -1,0 +1,9 @@
+SPARQLWrapper
+pandas
+numpy
+openai
+scikit-learn
+load_dotenv
+streamlit
+fuzzywuzzy
+ipykernel

@@ -31,7 +31,6 @@ def get_main_subjects(film_ids):
     
     return main_subjects
 
-
 def get_related_films(wikidata_id):
   endpoint_url = "https://query.wikidata.org/sparql"
     
@@ -42,6 +41,7 @@ def get_related_films(wikidata_id):
       {{
         ?x wdt:P136 ?genre.
         ?z wdt:P136 ?genre.
+        ?z wdt:P31 wd:Q11424.
         
         ?x wdt:P577 ?publicationDateX.
         ?z wdt:P577 ?publicationDateZ.
@@ -52,13 +52,15 @@ def get_related_films(wikidata_id):
       {{
         ?x wdt:P57 ?director.
         ?z wdt:P57 ?director.
-        
+        ?z wdt:P31 wd:Q11424.
+
         FILTER(?x != ?z)
       }}
       UNION
       {{
         ?x wdt:P921 ?mainSubject.
         ?z wdt:P921 ?mainSubject.
+        ?z wdt:P31 wd:Q11424.
         
         FILTER(?publicationDateZ >= ?publicationDateX - 10 && ?publicationDateZ <= ?publicationDateX + 10)
         FILTER(?x != ?z)
@@ -79,3 +81,35 @@ def get_related_films(wikidata_id):
   related_films = [result['z']['value'].split('/')[-1] for result in results['results']['bindings']]
   return related_films
 
+def get_displaying_data(wikidata_id):
+    
+    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    sparql.setQuery(f"""
+        SELECT ?item ?title ?year ?director ?image ?idwikidata 
+        WHERE {{
+            ?item wdt:P31 wd:Q11424.
+            ?item wdt:P1476 ?title. 
+            OPTIONAL {{ ?item wdt:P577 ?date. BIND(YEAR(?date) AS ?year) }}
+            OPTIONAL {{ ?item wdt:P57 ?director_item. ?director_item rdfs:label ?director. FILTER(LANG(?director) = "en") }}
+            OPTIONAL {{ ?item wdt:P18 ?image }}
+            BIND(REPLACE(STR(?item), ".*Q", "Q") AS ?idwikidata)
+            FILTER(LANG(?title) = "en")
+        }}
+        VALUES ?item {{ wd:{wikidata_id} }}
+    """)
+
+    sparql.setReturnFormat(JSON)
+    result = sparql.query().convert()["results"]["bindings"][0]
+  
+    film = {
+        "title": result["title"]["value"],
+        "year": result.get("year", {}).get("value"),
+        "director": result.get("director", {}).get("value", ""),
+        "image": result.get("image", {}).get("value", "") if "image" in result else None,
+        "idwikidata": result["idwikidata"]["value"]
+    }
+    return film
+
+if __name__ == "__main__":
+
+    print(get_displaying_data("Q25188"))

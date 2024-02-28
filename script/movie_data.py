@@ -16,7 +16,7 @@ def query_films_from_wikidata():
             BIND(REPLACE(STR(?item), ".*Q", "Q") AS ?idwikidata)
             FILTER(LANG(?title) = "en")
         }
-        LIMIT 10000
+        LIMIT 1000000
     """)
     sparql.setReturnFormat(JSON)
     results = sparql.query().convert()
@@ -26,18 +26,24 @@ def query_films_from_wikidata():
         film = {
             "title": result["title"]["value"],
             "year": result.get("year", {}).get("value"),
-            "director": result.get("director", {}).get("value") if "director" in result else None,
-            "image": result.get("image", {}).get("value") if "image" in result else None,
+            "director": result.get("director", {}).get("value", ""),
+            "image": result.get("image", {}).get("value", "") if "image" in result else None,
             "idwikidata": result["idwikidata"]["value"]
         }
-        if film["idwikidata"] not in [f["idwikidata"] for f in films]:
+        current_ids = [f["idwikidata"] for f in films]
+        if film["idwikidata"] not in current_ids:
             films.append(film)
         else:
-            index = next((i for i, f in enumerate(films) if f["idwikidata"] == film["idwikidata"]), None)
-            if film["director"] and film["director"] not in films[index]["director"]:
-                films[index]["director"] += ", " + film["director"]
-            if film["year"] and film["year"] not in films[index]["year"]:
-                films[index]["year"] = min(films[index]["year"], film["year"])
+            index = current_ids.index(film["idwikidata"])
+            try:
+                if film["director"] and film["director"] not in films[index]["director"]:
+                    films[index]["director"] += ", " + film["director"]
+                if film["year"] and film["year"] not in films[index]["year"]:
+                    films[index]["year"] = min(films[index]["year"], film["year"])
+            except Exception as e:
+                print(e)
+                print(film)
+                print(index)
 
     return films
 
